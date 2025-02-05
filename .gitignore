@@ -1,0 +1,17 @@
+# Ignore datasets
+data/*.csv
+data/*.log
+data/*.json
+
+# Ignore compiled machine learning models
+models/*.h5
+models/*.pkl
+
+# Ignore cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore virtual environment
+venv/
+env/
