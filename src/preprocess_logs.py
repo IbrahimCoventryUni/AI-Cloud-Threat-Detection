@@ -20,8 +20,12 @@ def preprocess_data(data):
     return data  
 
 if __name__ == "__main__":  
-    file_path = "../data/sample_logs.csv"  
+    file_path = "C:/Users/ibrah/Desktop/GithubDissertation/AI-Cloud-Threat-Detection/data/log3.csv"  
     df = load_data(file_path)  
     if df is not None:  
         df = preprocess_data(df)  
+
+
+
+
 
