@@ -20,7 +20,6 @@ def preprocess_data(data):
     return data  
 
 if __name__ == "__main__":  
-    
     file_path = "../data/sample_logs.csv"  
     df = load_data(file_path)  
     if df is not None:  
