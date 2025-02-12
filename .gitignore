@@ -1,6 +1,6 @@
 # Ignore datasets
-data/*.csv
-data/*.log
+# data/*.csv
+# data/*.log
 data/*.json
 
 # Ignore compiled machine learning models

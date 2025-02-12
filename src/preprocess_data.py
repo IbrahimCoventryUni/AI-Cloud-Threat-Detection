@@ -2,35 +2,18 @@ import pandas as pd
 import numpy as np
 
 # Load the dataset
-file_path = "../data/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv"
+file_path = "../data/cleaned_data.csv"
 df = pd.read_csv(file_path)
 
-# Drop duplicate rows
-df = df.drop_duplicates()
+# Strip spaces from column names
+df.columns = df.columns.str.strip()
 
-# Fill missing values with 0
-df = df.fillna(0)
+# Replace infinite values with the maximum finite value of each column
+numeric_cols = df.select_dtypes(include=[np.number])
+for col in numeric_cols.columns:
+    max_finite = numeric_cols[col].replace([np.inf, -np.inf], np.nan).max()
+    df[col] = df[col].replace([np.inf, -np.inf], max_finite)
 
-# Normalize IP addresses (convert to numeric format)
-def ip_to_numeric(ip):
-    parts = ip.split('.')
-    return sum(int(part) * (256 ** i) for i, part in enumerate(reversed(parts)))
-
-if 'Source IP' in df.columns:
-    df['Source IP'] = df['Source IP'].apply(ip_to_numeric)
-if 'Destination IP' in df.columns:
-    df['Destination IP'] = df['Destination IP'].apply(ip_to_numeric)
-
-# Normalize timestamp (convert to seconds)
-if 'Timestamp' in df.columns:
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
-    df['Timestamp'] = (df['Timestamp'] - df['Timestamp'].min()).dt.total_seconds()
-
-# Convert categorical values to machine-readable format
-if 'Label' in df.columns:
-    df['Label'] = df['Label'].astype('category').cat.codes
-
-# Save the cleaned dataset
+# Save the fixed dataset
 df.to_csv("../data/cleaned_data.csv", index=False)
-
-print("✅ Data Preprocessing Completed. Cleaned data saved as 'cleaned_data.csv'")
+print("✅ Data Cleaning Completed. Infinite values replaced.")
