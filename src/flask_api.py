@@ -22,9 +22,14 @@ def predict():
         if api_key != API_KEY:
             return jsonify({"error": "Unauthorized"}), 403
         
+        
         # Get JSON data from request
         data = request.json
         features = np.array(data["features"]).reshape(1, -1)
+
+        # Convert NumPy array to DataFrame with column names
+        column_names = ["feature_" + str(i) for i in range(features.shape[1])]
+        features_df = pd.DataFrame(features, columns=column_names)
 
         # Make prediction
         prediction = model.predict(features)
@@ -34,6 +39,11 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+# ✅ Fix for favicon.ico requests (prevent 404 errors)
+@app.route('/favicon.ico')
+def favicon():
+    return "", 204  # Respond with an empty favicon to prevent errors
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
