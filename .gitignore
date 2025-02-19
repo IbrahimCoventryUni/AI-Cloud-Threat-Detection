@@ -5,7 +5,7 @@ data/*.json
 
 # Ignore compiled machine learning models
 models/*.h5
-models/*.pkl
+#models/*.pkl
 
 # Ignore cache files
 __pycache__/
