@@ -49,11 +49,16 @@ def predict():
         print("🔴 Error occurred:", str(e))  # Debugging output
         return jsonify({"error": str(e)}), 400
 
-    
+#     To overwrite the method not found page
+@app.route('/predict', methods=['GET'])
+def predict_get():
+    return jsonify({"error": "Use a POST request with valid JSON input."}), 405
+
+
 # ✅ Fix for favicon.ico requests (prevent 404 errors)
 @app.route('/favicon.ico')
 def favicon():
     return "", 204  # Respond with an empty favicon to prevent errors
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
