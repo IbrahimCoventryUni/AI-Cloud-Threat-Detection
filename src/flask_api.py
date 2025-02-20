@@ -17,28 +17,36 @@ API_KEY = "9003121034"
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Authenticate API request
         api_key = request.headers.get("x-api-key")
         if api_key != API_KEY:
-            return jsonify({"error": "Unauthorized"}), 403
+            return jsonify({"error": "Unauthorized. Invalid API Key"}), 403
         
-        
-        # Get JSON data from request
-        data = request.json
-        features = np.array(data["features"]).reshape(1, -1)
+        # Debug: Print incoming request
+        print("Received Request:", request.json)  
+
+        # Ensure JSON data is received
+        if not request.json or "features" not in request.json:
+            return jsonify({"error": "Invalid JSON format. 'features' key missing"}), 400
+
+        features = np.array(request.json["features"]).reshape(1, -1)
 
         # Convert NumPy array to DataFrame with column names
         column_names = ["feature_" + str(i) for i in range(features.shape[1])]
         features_df = pd.DataFrame(features, columns=column_names)
 
+        # Debug: Print feature DataFrame
+        print("Feature DataFrame:\n", features_df)
+
         # Make prediction
-        prediction = model.predict(features)
+        prediction = model.predict(features_df)
         result = "BENIGN" if prediction[0] == "BENIGN" else "THREAT"
 
         return jsonify({"prediction": result})
 
     except Exception as e:
+        print("Error:", str(e))  # Debugging output
         return jsonify({"error": str(e)}), 400
+
     
 # ✅ Fix for favicon.ico requests (prevent 404 errors)
 @app.route('/favicon.ico')
