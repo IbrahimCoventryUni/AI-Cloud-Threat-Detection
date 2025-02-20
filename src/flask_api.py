@@ -11,6 +11,13 @@ CORS(app)  # Enable Cross-Origin Requests
 model_path = os.path.join(os.path.dirname(__file__), "../models/ai_threat_model.pkl")
 model = joblib.load(model_path)
 
+# Debug: Print model feature names
+try:
+    correct_feature_names = model.feature_names_in_
+    print("✅ Model was trained with these feature names:", correct_feature_names)
+except AttributeError:
+    print("⚠️ Warning: Model does not store feature names.")
+
 # Define API Key (for security)
 API_KEY = "9003121034"  
 
@@ -21,21 +28,16 @@ def predict():
         if api_key != API_KEY:
             return jsonify({"error": "Unauthorized. Invalid API Key"}), 403
         
-        # Debug: Print incoming request
-        print("Received Request:", request.json)  
+        # Get JSON data from request
+        data = request.json
+        features = np.array(data["features"]).reshape(1, -1)
 
-        # Ensure JSON data is received
-        if not request.json or "features" not in request.json:
-            return jsonify({"error": "Invalid JSON format. 'features' key missing"}), 400
+        # Use the correct feature names from the trained model
+        correct_feature_names = model.feature_names_in_  # Extract original feature names
+        features_df = pd.DataFrame(features, columns=correct_feature_names)  # Use correct names
 
-        features = np.array(request.json["features"]).reshape(1, -1)
-
-        # Convert NumPy array to DataFrame with column names
-        column_names = ["feature_" + str(i) for i in range(features.shape[1])]
-        features_df = pd.DataFrame(features, columns=column_names)
-
-        # Debug: Print feature DataFrame
-        print("Feature DataFrame:\n", features_df)
+        # Debug: Print DataFrame to check column names
+        print("✅ DataFrame for prediction:\n", features_df.head())
 
         # Make prediction
         prediction = model.predict(features_df)
@@ -44,7 +46,7 @@ def predict():
         return jsonify({"prediction": result})
 
     except Exception as e:
-        print("Error:", str(e))  # Debugging output
+        print("🔴 Error occurred:", str(e))  # Debugging output
         return jsonify({"error": str(e)}), 400
 
     
