@@ -10,7 +10,7 @@ CORS(app)  # Enable Cross-Origin Requests
 # Load the trained model
 # model_path = os.path.join(os.path.dirname(__file__), "../models/ai_threat_model.pkl")
 
-model_path = os.path.join(os.path.dirname(__file__), "../models/nn_threat_model.pkl")
+model_path = os.path.join(os.path.dirname(__file__), "../models/neural_network_unsw.pkl")
 model = joblib.load(model_path)
 
 # Debug: Print model feature names
