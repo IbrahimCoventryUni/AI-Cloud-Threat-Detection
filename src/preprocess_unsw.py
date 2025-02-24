@@ -15,22 +15,25 @@ columns = [
     "ct_src_dport_ltm", "ct_dst_sport_ltm", "ct_dst_src_ltm", "attack_cat", "label"
 ]
 
-# Load and merge CSV files with proper column names  
+# Load and merge CSV files  
 dfs = [pd.read_csv(os.path.join(data_dir, file), names=columns, skiprows=1, low_memory=False) for file in csv_files]  
 df = pd.concat(dfs, ignore_index=True)  
 
-# Drop unnecessary columns (e.g., IP addresses for privacy)  
+# Drop unnecessary columns  
 df.drop(columns=["srcip", "dstip"], inplace=True, errors='ignore')  
 
-# Convert hexadecimal and categorical values to numerical  
+# Convert categorical variables into numerical  
 for col in ["proto", "state", "service", "attack_cat"]:  
-    df[col] = df[col].astype("category").cat.codes  # Convert category to numerical values  
+    df[col] = df[col].astype("category").cat.codes  
 
-# Convert hexadecimal values to integers (fixing '0x000c' issue)  
+# Convert hex values to numbers  
 df = df.applymap(lambda x: int(x, 16) if isinstance(x, str) and x.startswith("0x") else x)  
 
-# Ensure all data is numeric  
-df = df.apply(pd.to_numeric, errors="coerce")  
+# **Fix: Replace empty spaces (' ') and '-' with NaN**  
+df.replace([' ', '-'], pd.NA, inplace=True)  
+
+# **Fill NaN with column median**  
+df.fillna(df.median(numeric_only=True), inplace=True)  
 
 # Save cleaned dataset  
 df.to_csv("../data/cleaned_unsw.csv", index=False)  

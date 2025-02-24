@@ -10,6 +10,7 @@ from sklearn.metrics import accuracy_score, classification_report
 # Load preprocessed dataset  
 df = pd.read_csv("../data/cleaned_unsw.csv")  
 
+
 # Separate features and labels  
 X = df.drop(columns=["label"])  
 y = df["label"]  
