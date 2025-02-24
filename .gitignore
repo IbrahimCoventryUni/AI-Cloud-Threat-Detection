@@ -1,5 +1,5 @@
 # Ignore datasets
-data/*.csv
+# data/*.csv
 # data/*.log
 data/UNSW-NB15_1.csv
 data/UNSW-NB15_2.csv
