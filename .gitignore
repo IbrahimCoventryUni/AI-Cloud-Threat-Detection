@@ -1,11 +1,12 @@
 # Ignore datasets
 # data/*.csv
-# data/*.log
-data/UNSW-NB15_1.csv
-data/UNSW-NB15_2.csv
-data/UNSW-NB15_3.csv
-data/UNSW-NB15_4.csv
-data/cleaned_unsw.csv
+data/*.log
+# data/UNSW-NB15_1.csv
+# data/UNSW-NB15_2.csv
+# data/UNSW-NB15_3.csv
+# data/UNSW-NB15_4.csv
+# data/cleaned_unsw.csv
+# data/Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv
 data/*.json
 
 # Ignore compiled machine learning models
