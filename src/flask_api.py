@@ -8,7 +8,9 @@ app = Flask(__name__)
 CORS(app)  # Enable Cross-Origin Requests
 
 # Load the trained model
-model_path = os.path.join(os.path.dirname(__file__), "../models/ai_threat_model.pkl")
+# model_path = os.path.join(os.path.dirname(__file__), "../models/ai_threat_model.pkl")
+
+model_path = os.path.join(os.path.dirname(__file__), "../models/nn_threat_model.pkl")
 model = joblib.load(model_path)
 
 # Debug: Print model feature names
@@ -41,7 +43,10 @@ def predict():
 
         # Make prediction
         prediction = model.predict(features_df)
-        result = "BENIGN" if prediction[0] == "BENIGN" else "THREAT"
+        result = "BENIGN" if prediction[0] == 0 else "THREAT"
+
+        # prediction = model.predict(features_df)
+        # result = "BENIGN" if prediction[0] == "BENIGN" else "THREAT"
 
         return jsonify({"prediction": result})
 
