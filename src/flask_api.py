@@ -22,6 +22,14 @@ except AttributeError:
 # Define API Key (for security)
 API_KEY = "9003121034"
 
+# Define the selected features used during model training
+SELECTED_FEATURES = [
+    'sttl', 'ct_state_ttl', 'dttl', 'smeansz', 'ct_srv_dst',
+    'ct_dst_sport_ltm', 'ct_srv_src', 'sbytes', 'service', 'swin',
+    'ct_dst_src_ltm', 'ct_src_dport_ltm', 'sport', 'state', 'Ltime',
+    'dwin', 'ct_src_ltm', 'Stime', 'dmeansz', 'dsport'
+]
+
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
@@ -29,28 +37,17 @@ def predict():
         api_key = request.headers.get("x-api-key")
         if api_key != API_KEY:
             return jsonify({"error": "Unauthorized. Invalid API Key"}), 403
-        
+
         # Get JSON data from request
         data = request.json
         input_features = np.array(data["features"]).reshape(1, -1)
 
-        # Expected feature names from the trained model (46 features)
-        correct_feature_names = [
-            'sport', 'dsport', 'proto', 'state', 'dur', 'sbytes', 'dbytes', 'sttl', 'dttl',
-            'sloss', 'dloss', 'service', 'Sload', 'Dload', 'Spkts', 'Dpkts', 'swin', 'dwin',
-            'stcpb', 'dtcpb', 'smeansz', 'dmeansz', 'trans_depth', 'res_bdy_len', 'Sjit',
-            'Djit', 'Stime', 'Ltime', 'Sintpkt', 'Dintpkt', 'tcprtt', 'synack', 'ackdat',
-            'is_sm_ips_ports', 'ct_state_ttl', 'ct_flw_http_mthd', 'is_ftp_login',
-            'ct_ftp_cmd', 'ct_srv_src', 'ct_srv_dst', 'ct_dst_ltm', 'ct_src_ltm',
-            'ct_src_dport_ltm', 'ct_dst_sport_ltm', 'ct_dst_src_ltm', 'attack_cat'
-        ]
+        # Ensure input features match expected number
+        if len(input_features[0]) != len(SELECTED_FEATURES):
+            return jsonify({"error": f"Expected {len(SELECTED_FEATURES)} features, but got {len(input_features[0])}"}), 400
 
-        # Ensure input features match expected order and number
-        if len(input_features[0]) != len(correct_feature_names):
-            return jsonify({"error": f"Expected {len(correct_feature_names)} features, but got {len(input_features[0])}"}), 400
-
-        # Convert input features into DataFrame
-        features_df = pd.DataFrame(input_features, columns=correct_feature_names)
+        # Create a DataFrame with the correct column names
+        features_df = pd.DataFrame(input_features, columns=SELECTED_FEATURES)
 
         # Debugging Output
         print("✅ DataFrame for prediction:\n", features_df.head())

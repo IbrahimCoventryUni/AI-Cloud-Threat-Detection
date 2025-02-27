@@ -1,99 +1,67 @@
-import numpy as np
 import pandas as pd
+import numpy as np
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+import xgboost as xgb
 from sklearn.neural_network import MLPClassifier
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
 from imblearn.over_sampling import RandomOverSampler
 
-# 📌 Load the cleaned dataset
-data_path = "../data/cleaned_unsw.csv"  # ✅ Ensure this is correct
+# Load dataset
+data_path = "../data/cleaned_unsw.csv"
 df = pd.read_csv(data_path)
 
-# 📌 Extract features and labels
-X = df.drop(columns=["attack_cat"])  # Features
-y = df["attack_cat"].replace(-1, 13)   # Labels
+# Load important features from feature_importance.csv
+feature_importance_path = "../data/feature_importance.csv"
+important_features = pd.read_csv(feature_importance_path, index_col=0).index.tolist()
 
-# 📌 Reduce the dataset size to avoid memory issues
-sample_fraction = 0.3  # 🔥 Only use 30% of the dataset to fit in memory
-X_sampled, _, y_sampled, _ = train_test_split(X, y, train_size=sample_fraction, random_state=42, stratify=y)
+# Keep only important features
+selected_features = important_features[:20]  # Use only the top 20 features
+X = df[selected_features]
+y = df['attack_cat']
 
-# 📌 Determine oversampling strategy (Limit max samples per class)
-max_class_size = min(y_sampled.value_counts().max(), 100000)  # 🔥 Cap at 100K samples per class
-sampling_strategy = {cls: max_class_size for cls, count in y_sampled.value_counts().items() if count < max_class_size}
+y = y.replace(-1, 13)
 
-# 📌 Apply oversampling (only increases minority class count)
-oversampler = RandomOverSampler(sampling_strategy=sampling_strategy, random_state=42)
-X_resampled, y_resampled = oversampler.fit_resample(X_sampled, y_sampled)
+# Oversampling to balance dataset
+oversampler = RandomOverSampler()
+# Apply oversampling
+X_resampled, y_resampled = oversampler.fit_resample(X, y)
 
-print(f"✅ Balanced dataset created: {len(X_resampled)} samples")
+# Reduce dataset size to 500,000 samples (adjust as needed)
+sample_size = 500000
+if len(X_resampled) > sample_size:
+    X_resampled, y_resampled = X_resampled.sample(sample_size, random_state=42), y_resampled.sample(sample_size, random_state=42)
 
-# 📌 Split into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(
-    X_resampled, y_resampled, test_size=0.2, random_state=42, stratify=y_resampled
-)
+print(f"✅ Reduced dataset size: {len(X_resampled)} samples")
 
-# 📌 Normalize features using MinMaxScaler
-scaler = MinMaxScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+# Train/Test split
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.25, random_state=42)
 
-# 📌 Save the scaler for later use in prediction
-joblib.dump(scaler, "../models/feature_scaler.pkl")
-
-# 📌 Compute class weights to handle imbalance in Neural Network
-class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
-class_weight_dict = {cls: weight for cls, weight in zip(np.unique(y_train), class_weights)}
-
-print(df["attack_cat"].value_counts())
-
-
-# 🚀 Train Random Forest Classifier
+# Train Random Forest
 print("🚀 Training Random Forest...")
-rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model = RandomForestClassifier(n_estimators=50, random_state=42)
 rf_model.fit(X_train, y_train)
-rf_preds = rf_model.predict(X_test)
-print(f"✅ Random Forest Accuracy: {rf_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, rf_preds))
+y_pred_rf = rf_model.predict(X_test)
+print(f"✅ Random Forest Accuracy: {accuracy_score(y_test, y_pred_rf):.4f}")
+print(classification_report(y_test, y_pred_rf))
 
-# 🚀 Train XGBoost Classifier
+# Train XGBoost
 print("\n🚀 Training XGBoost...")
-xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
+xgb_model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss', tree_method='hist', max_depth=5)
 xgb_model.fit(X_train, y_train)
-xgb_preds = xgb_model.predict(X_test)
-print(f"✅ XGBoost Accuracy: {xgb_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, xgb_preds))
+y_pred_xgb = xgb_model.predict(X_test)
+print(f"✅ XGBoost Accuracy: {accuracy_score(y_test, y_pred_xgb):.4f}")
+print(classification_report(y_test, y_pred_xgb))
 
+# # Train Neural Network
+# print("\n🚀 Training Neural Network...")
+# nn_model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam', max_iter=100)
+# nn_model.fit(X_train, y_train)
+# y_pred_nn = nn_model.predict(X_test)
+# print(f"✅ Neural Network Accuracy: {accuracy_score(y_test, y_pred_nn):.4f}")
+# print(classification_report(y_test, y_pred_nn))
 
-# 🚀 Train Neural Network (MLP Classifier)
-print("\n🚀 Training Neural Network...")
-nn_model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam',
-                         max_iter=500, alpha=0.001, random_state=42)
-
-
-# Replace NaN values with the column mean
-X_train = np.nan_to_num(X_train, nan=np.nanmean(X_train))
-X_test = np.nan_to_num(X_test, nan=np.nanmean(X_test))
-
-# Verify if NaNs are removed
-if np.isnan(X_train).sum() == 0 and np.isnan(X_test).sum() == 0:
-    print("✅ No missing values in X_train and X_test")
-else:
-    print("⚠️ Warning: Missing values still exist")
-
-
-nn_model.fit(X_train, y_train)
-nn_preds = nn_model.predict(X_test)
-print(f"✅ Neural Network Accuracy: {nn_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, nn_preds))
-
-# 📌 Save trained models
+# Save best model (Random Forest in this case)
 joblib.dump(rf_model, "../models/random_forest_unsw.pkl")
-joblib.dump(xgb_model, "../models/xgboost_unsw.pkl")
-joblib.dump(nn_model, "../models/neural_network_unsw.pkl")
-
-print("\n✅ Model training completed and saved successfully!")
+print("✅ Model training completed and saved successfully!")
