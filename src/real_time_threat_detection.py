@@ -1,72 +1,62 @@
-import os
-import scapy.all as scapy
-from scapy.layers.inet import IP, TCP, UDP
 import joblib
-import numpy as np
+import requests
+import scapy.all as scapy
+import pandas as pd
 
-# Load the trained model from the models folder
-model_path = os.path.join(os.path.dirname(__file__), "../models/random_forest_unsw.pkl")
+# Load the trained model
+model_path = "../models/random_forest_unsw.pkl"
 model = joblib.load(model_path)
 
-# Label mapping based on UNSW-NB15 dataset
-attack_labels = {
-    0: "BENIGN",
-    1: "Generic",
-    2: "Exploits",
-    3: "Fuzzers",
-    4: "DoS",
-    5: "Reconnaissance",
-    6: "Analysis",
-    7: "Backdoor",
-    8: "Shellcode",
-    9: "Worms",
-    10: "Shellcode",
-    11: "Reconnaissance",
-    12: "Analysis",
-    13: "Fuzzers"
-}
+# Load the selected features from feature_importance.csv
+feature_importance_path = "../data/feature_importance.csv"
+important_features = pd.read_csv(feature_importance_path, index_col=0).index.tolist()
+selected_features = important_features[:20]  # Match features used in training
+
+# Flask API URL
+API_URL = "http://127.0.0.1:5000/predict"
 
 def extract_features(pkt):
-    """
-    Extracts features from a packet for ML model input.
-    Returns a list of extracted features.
-    """
-    if pkt.haslayer(IP):
-        sport = pkt.sport if pkt.haslayer(TCP) or pkt.haslayer(UDP) else 0
-        dsport = pkt.dport if pkt.haslayer(TCP) or pkt.haslayer(UDP) else 0
-        proto = pkt[IP].proto  # Protocol (TCP=6, UDP=17, etc.)
-        sbytes = len(pkt)  # Packet size in bytes
+    """Extract relevant features from a network packet."""
+    if not pkt.haslayer(scapy.IP):
+        print("❌ Non-IP packet detected. Skipping...")
+        return None
 
-        return [sport, dsport, proto, sbytes]
-    else:
-        return None  # Non-IP packets are ignored
+    # Extract basic packet features
+    sport = pkt.sport if hasattr(pkt, 'sport') else 0
+    dsport = pkt.dport if hasattr(pkt, 'dport') else 0
+    proto = pkt.proto if hasattr(pkt, 'proto') else -1
+    sbytes = len(pkt) if hasattr(pkt, 'len') else 0
 
-def process_packet(pkt):
-    """
-    Processes a captured packet and classifies it using the trained ML model.
-    """
-    print(f"📜 Raw Packet Summary: {pkt.summary()}")  # Log packet details
+    # Construct feature dictionary
+    features_dict = {
+        "sport": sport,
+        "dsport": dsport,
+        "proto": proto,
+        "sbytes": sbytes
+    }
+
+    # Ensure all selected features exist in dictionary (fill missing with 0)
+    feature_vector = [features_dict.get(f, 0) for f in selected_features]
+    
+    return feature_vector
+
+def detect_threat(pkt):
+    """Process a packet and send features to the Flask API."""
+    print(f"📜 Raw Packet Summary: {pkt.summary()}")
 
     features = extract_features(pkt)
     if features is None:
-        print("❌ Non-IP packet detected. Skipping...")
         return
+    
+    data = {"features": features}
+    response = requests.post(API_URL, json=data)
+    
+    if response.status_code == 200:
+        result = response.json()["prediction"]
+        print(f"✅ Packet {features[0]} → {features[1]} classified as: {result}")
+    else:
+        print("🔴 Error processing packet:", response.text)
 
-    # Reshape for model input
-    features_array = np.array(features).reshape(1, -1)
-
-    # Make prediction
-    prediction = model.predict(features_array)[0]
-    attack_class = attack_labels.get(prediction, "Unknown")
-
-    print(f"✅ Packet {features[0]} → {features[1]} classified as: {attack_class}")
-
-def start_sniffing():
-    """
-    Starts live packet sniffing.
-    """
-    print("🚀 Capturing network packets for real-time threat detection...")
-    scapy.sniff(prn=process_packet, store=False)
-
-if __name__ == "__main__":
-    start_sniffing()
+# Start sniffing network traffic
+print("🚀 Capturing network packets for real-time threat detection...")
+scapy.sniff(prn=detect_threat, store=False)
