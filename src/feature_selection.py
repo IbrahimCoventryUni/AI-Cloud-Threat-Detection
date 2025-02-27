@@ -4,19 +4,19 @@ from sklearn.ensemble import ExtraTreesClassifier
 import matplotlib.pyplot as plt
 
 # Load the cleaned dataset
-file_path = "../data/cleaned_data.csv"
+file_path = "../data/cleaned_unsw.csv"
 df = pd.read_csv(file_path)
 
 # Strip spaces from column names
 df.columns = df.columns.str.strip()
 
-# Check if 'Label' exists
-if 'Label' not in df.columns:
-    raise ValueError("❌ 'Label' column is still missing! Please check dataset.")
+# Check if 'attack_cat' and 'label' exist
+if 'attack_cat' not in df.columns or 'label' not in df.columns:
+    raise ValueError("❌ 'attack_cat' or 'label' column is missing! Please check dataset.")
 
 # Separate features (X) and target variable (y)
-X = df.drop(columns=['Label'])  # All columns except 'Label'
-y = df['Label']  # Target variable
+X = df.drop(columns=['label', 'attack_cat'])  # Drop both 'label' and 'attack_cat'
+y = df['attack_cat']  # Target variable
 
 # Feature importance analysis using Extra Trees Classifier
 model = ExtraTreesClassifier()
