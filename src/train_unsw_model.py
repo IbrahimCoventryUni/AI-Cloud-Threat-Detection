@@ -1,96 +1,99 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import classification_report
+from imblearn.over_sampling import RandomOverSampler
 
-# Load dataset
-df = pd.read_csv("../data/cleaned_unsw.csv")
+# 📌 Load the cleaned dataset
+data_path = "../data/cleaned_unsw.csv"  # ✅ Ensure this is correct
+df = pd.read_csv(data_path)
 
-# Separate attack and benign samples
-benign_df = df[df["label"] == 0]
-attack_df = df[df["label"] == 1]
+# 📌 Extract features and labels
+X = df.drop(columns=["attack_cat"])  # Features
+y = df["attack_cat"].replace(-1, 13)   # Labels
 
-# Balance by undersampling majority class
-benign_sample = benign_df.sample(n=len(attack_df), random_state=42)
+# 📌 Reduce the dataset size to avoid memory issues
+sample_fraction = 0.3  # 🔥 Only use 30% of the dataset to fit in memory
+X_sampled, _, y_sampled, _ = train_test_split(X, y, train_size=sample_fraction, random_state=42, stratify=y)
 
-# Merge balanced dataset
-df_balanced = pd.concat([benign_sample, attack_df])
+# 📌 Determine oversampling strategy (Limit max samples per class)
+max_class_size = min(y_sampled.value_counts().max(), 100000)  # 🔥 Cap at 100K samples per class
+sampling_strategy = {cls: max_class_size for cls, count in y_sampled.value_counts().items() if count < max_class_size}
 
-# Shuffle dataset
-df_balanced = df_balanced.sample(frac=1, random_state=42)
+# 📌 Apply oversampling (only increases minority class count)
+oversampler = RandomOverSampler(sampling_strategy=sampling_strategy, random_state=42)
+X_resampled, y_resampled = oversampler.fit_resample(X_sampled, y_sampled)
 
-# Separate features and labels
-X = df_balanced.drop(columns=["label"])
-y = df_balanced["label"]
+print(f"✅ Balanced dataset created: {len(X_resampled)} samples")
+
+# 📌 Split into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X_resampled, y_resampled, test_size=0.2, random_state=42, stratify=y_resampled
+)
+
+# 📌 Normalize features using MinMaxScaler
+scaler = MinMaxScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 📌 Save the scaler for later use in prediction
+joblib.dump(scaler, "../models/feature_scaler.pkl")
+
+# 📌 Compute class weights to handle imbalance in Neural Network
+class_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+class_weight_dict = {cls: weight for cls, weight in zip(np.unique(y_train), class_weights)}
+
+print(df["attack_cat"].value_counts())
 
 
-# Split dataset into training (80%) and testing (20%)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# ✅ Fix: Ensure DataFrame is copied to avoid modification warnings
-X_train = X_train.copy()
-X_test = X_test.copy()
-
-# ✅ Fix: Fill missing values for `sport` and `dsport` with most frequent value (mode)
-for col in ["sport", "dsport"]:
-    if col in X_train.columns:
-        X_train[col] = X_train[col].fillna(X_train[col].mode()[0])
-        X_test[col] = X_test[col].fillna(X_test[col].mode()[0])
-
-# ✅ Fix: Handle `ct_ftp_cmd` only if it exists
-if "ct_ftp_cmd" in X_train.columns:
-    X_train["ct_ftp_cmd"] = X_train["ct_ftp_cmd"].fillna(0)
-if "ct_ftp_cmd" in X_test.columns:
-    X_test["ct_ftp_cmd"] = X_test["ct_ftp_cmd"].fillna(0)
-
-# 🚀 Train Random Forest with stronger regularization
+# 🚀 Train Random Forest Classifier
 print("🚀 Training Random Forest...")
-rf_model = RandomForestClassifier(
-    n_estimators=30,      # Fewer trees
-    max_depth=6,          # Even shallower depth
-    min_samples_split=30, # Larger split requirement
-    random_state=42
-)
-
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
 rf_model.fit(X_train, y_train)
-y_pred_rf = rf_model.predict(X_test)
+rf_preds = rf_model.predict(X_test)
 print(f"✅ Random Forest Accuracy: {rf_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, y_pred_rf))
+print(classification_report(y_test, rf_preds))
 
-# Save model
-joblib.dump(rf_model, "../models/random_forest_unsw.pkl")
-
-# 🚀 Train XGBoost with stronger regularization
+# 🚀 Train XGBoost Classifier
 print("\n🚀 Training XGBoost...")
-xgb_model = XGBClassifier(
-    n_estimators=30,      
-    max_depth=6,          
-    learning_rate=0.05,   # Lower learning rate  
-    reg_lambda=2.0,       # More L2 regularization  
-    eval_metric="logloss"
-)
-
+xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
 xgb_model.fit(X_train, y_train)
-y_pred_xgb = xgb_model.predict(X_test)
+xgb_preds = xgb_model.predict(X_test)
 print(f"✅ XGBoost Accuracy: {xgb_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, y_pred_xgb))
+print(classification_report(y_test, xgb_preds))
 
-# Save model
-joblib.dump(xgb_model, "../models/xgboost_unsw.pkl")
 
-# 🚀 Train Neural Network (MLP)
+# 🚀 Train Neural Network (MLP Classifier)
 print("\n🚀 Training Neural Network...")
-mlp_model = MLPClassifier(hidden_layer_sizes=(256, 128, 64), max_iter=1000, random_state=42, early_stopping=True, learning_rate="adaptive")
-mlp_model.fit(X_train, y_train)
-y_pred_mlp = mlp_model.predict(X_test)
-print(f"✅ Neural Network Accuracy: {mlp_model.score(X_test, y_test):.4f}")
-print(classification_report(y_test, y_pred_mlp, zero_division=1))
+nn_model = MLPClassifier(hidden_layer_sizes=(128, 64), activation='relu', solver='adam',
+                         max_iter=500, alpha=0.001, random_state=42)
 
-# Save model
-joblib.dump(mlp_model, "../models/neural_network_unsw.pkl")
+
+# Replace NaN values with the column mean
+X_train = np.nan_to_num(X_train, nan=np.nanmean(X_train))
+X_test = np.nan_to_num(X_test, nan=np.nanmean(X_test))
+
+# Verify if NaNs are removed
+if np.isnan(X_train).sum() == 0 and np.isnan(X_test).sum() == 0:
+    print("✅ No missing values in X_train and X_test")
+else:
+    print("⚠️ Warning: Missing values still exist")
+
+
+nn_model.fit(X_train, y_train)
+nn_preds = nn_model.predict(X_test)
+print(f"✅ Neural Network Accuracy: {nn_model.score(X_test, y_test):.4f}")
+print(classification_report(y_test, nn_preds))
+
+# 📌 Save trained models
+joblib.dump(rf_model, "../models/random_forest_unsw.pkl")
+joblib.dump(xgb_model, "../models/xgboost_unsw.pkl")
+joblib.dump(nn_model, "../models/neural_network_unsw.pkl")
 
 print("\n✅ Model training completed and saved successfully!")

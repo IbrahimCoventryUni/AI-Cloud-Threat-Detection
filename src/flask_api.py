@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)  # Enable Cross-Origin Requests
 
 # Load the trained model
-model_path = os.path.join(os.path.dirname(__file__), "../models/neural_network_unsw.pkl")
+model_path = os.path.join(os.path.dirname(__file__), "../models/random_forest_unsw.pkl")
 model = joblib.load(model_path)
 
 # Debug: Print expected feature names from the model
@@ -73,7 +73,7 @@ def favicon():
 # ✅ Fix for incorrect HTTP method usage
 @app.route('/predict', methods=['GET'])
 def predict_get():
-    return jsonify({"error": "Use a POST request with valid JSON input."}), 405
+    return jsonify({"error": "Hi Antal, Use a POST request with valid JSON input."}), 405
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
