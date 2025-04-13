@@ -4,15 +4,13 @@ import random
 import json
 
 # Your deployed API URL
-API_URL = "https://ai-cloud-threat-detection-production.up.railway.app/predict"
+API_URL = "http://127.0.0.1:5000/predict"
 API_KEY = "9003121034"  
 
 # Simulated network traffic data (EXACTLY 46 values)
 features = [
     54865.0, 3.0, 2.0, 0.0, 12.0, 0.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-    4000000.0, 666666.6667, 3.0, 0.0, 3.0, 3.0, 3.0, 3.0, 0.0, 3.0, 3.0, 0.0, 
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 40.0, 0.0, 666666.6667, 0.0, 
-    6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0
+    4000000.0, 666666.6667, 3.0, 0.0, 3.0, 3.0
 ]
 
 # Prepare request payload
